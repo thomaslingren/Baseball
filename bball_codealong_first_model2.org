@@ -1,0 +1,821 @@
+#+TITLE: Baseball Prediction with Machine Learning Youtube Codealong
+#+SUBTITLE: Building a First Model
+#+AUTHOR: Thomas Lingren 
+#+DATE: Time-stamp: <2024-04-19 11:34:23 tommy>
+#+PROPERTY: header-args:python :session *Python* :results output
+#+STARTUP: overview hideblocks indent :
+
+* Building a First Model
+    #+begin_example
+      - In the last notebook / lesson we loaded in the data from retrosheet and did some processing
+        to get the team level statistics.
+      - We saved that data to a file called 'df_bp1.csv'
+      - In this notebook, we will load in that data, do some initital data exploration, and then
+        build and evaluate our first predictive model
+    #+end_example
+
+    #+begin_src python
+      # Uncomment if you need to install any of the following packages
+      # !pip install lightgbm
+      # !pip install ml_insights --upgrade
+      # !pip install structureboost
+      
+      import numpy as np
+      import pandas as pd
+      import matplotlib.pyplot as plt
+
+      # import lightgbm as lgbm
+      # import structureboost as stb
+      # import ml_insights as mli
+      # from structureboost import log_loss
+      pd.set_option('display.max_columns',1000)
+      pd.set_option('display.max_rows',1000)
+
+    #+end_src
+
+    #+RESULTS:
+
+#+begin_src python
+  df=pd.read_csv('df_bp1.csv')
+  print(df.info(max_cols=1000))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+c:/Users/THOMAS~1.LIN/AppData/Local/Temp/babel-MAyFhD/python-UHnItP:1: DtypeWarning: Columns (13,14,15,85,87) have mixed types. Specify dtype option on import or set low_memory=False.
+  df=pd.read_csv('df_bp1.csv')
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 96276 entries, 0 to 96275
+Data columns (total 194 columns):
+ #    Column                Non-Null Count  Dtype  
+---   ------                --------------  -----  
+ 0    date                  96276 non-null  int64  
+ 1    dblheader_code        96276 non-null  int64  
+ 2    day_of_week           96276 non-null  object 
+ 3    team_v                96276 non-null  object 
+ 4    league_v              96276 non-null  object 
+ 5    game_no_v             96276 non-null  int64  
+ 6    team_h                96276 non-null  object 
+ 7    league_h              96276 non-null  object 
+ 8    game_no_h             96276 non-null  int64  
+ 9    runs_v                96276 non-null  int64  
+ 10   runs_h                96276 non-null  int64  
+ 11   outs_total            96276 non-null  int64  
+ 12   day_night             96276 non-null  object 
+ 13   completion_info       83 non-null     object 
+ 14   forfeit_info          1 non-null      object 
+ 15   protest_info          70 non-null     object 
+ 16   ballpark_id           96276 non-null  object 
+ 17   attendance            95376 non-null  float64
+ 18   game_minutes          96276 non-null  int64  
+ 19   linescore_v           96276 non-null  object 
+ 20   linescore_h           96276 non-null  object 
+ 21   AB_v                  96276 non-null  int64  
+ 22   H_v                   96276 non-null  int64  
+ 23   2B_v                  96276 non-null  int64  
+ 24   3B_v                  96276 non-null  int64  
+ 25   HR_v                  96276 non-null  int64  
+ 26   RBI_v                 96276 non-null  int64  
+ 27   SH_v                  96276 non-null  int64  
+ 28   SF_v                  96276 non-null  int64  
+ 29   HBP_v                 96276 non-null  int64  
+ 30   BB_v                  96276 non-null  int64  
+ 31   IBB_v                 96276 non-null  int64  
+ 32   SO_v                  96276 non-null  int64  
+ 33   SB_v                  96276 non-null  int64  
+ 34   CS_v                  96276 non-null  int64  
+ 35   GIDP_v                96276 non-null  int64  
+ 36   CI_v                  96276 non-null  int64  
+ 37   LOB_v                 96276 non-null  int64  
+ 38   P_num_v               96276 non-null  int64  
+ 39   ERind_v               96276 non-null  int64  
+ 40   ERteam_v              96276 non-null  int64  
+ 41   WP_v                  96276 non-null  int64  
+ 42   balk_v                96276 non-null  int64  
+ 43   PO_v                  96276 non-null  int64  
+ 44   ASST_v                96276 non-null  int64  
+ 45   ERR_v                 96276 non-null  int64  
+ 46   PB_v                  96276 non-null  int64  
+ 47   DP_v                  96276 non-null  int64  
+ 48   TP_v                  96276 non-null  int64  
+ 49   AB_h                  96276 non-null  int64  
+ 50   H_h                   96276 non-null  int64  
+ 51   2B_h                  96276 non-null  int64  
+ 52   3B_h                  96276 non-null  int64  
+ 53   HR_h                  96276 non-null  int64  
+ 54   RBI_h                 96276 non-null  int64  
+ 55   SH_h                  96276 non-null  int64  
+ 56   SF_h                  96276 non-null  int64  
+ 57   HBP_h                 96276 non-null  int64  
+ 58   BB_h                  96276 non-null  int64  
+ 59   IBB_h                 96276 non-null  int64  
+ 60   SO_h                  96276 non-null  int64  
+ 61   SB_h                  96276 non-null  int64  
+ 62   CS_h                  96276 non-null  int64  
+ 63   GIDP_h                96276 non-null  int64  
+ 64   CI_h                  96276 non-null  int64  
+ 65   LOB_h                 96276 non-null  int64  
+ 66   P_num_h               96276 non-null  int64  
+ 67   ERind_h               96276 non-null  int64  
+ 68   ERteam_h              96276 non-null  int64  
+ 69   WP_h                  96276 non-null  int64  
+ 70   balk_h                96276 non-null  int64  
+ 71   PO_h                  96276 non-null  int64  
+ 72   ASST_h                96276 non-null  int64  
+ 73   ERR_h                 96276 non-null  int64  
+ 74   PB_h                  96276 non-null  int64  
+ 75   DP_h                  96276 non-null  int64  
+ 76   TP_h                  96276 non-null  int64  
+ 77   ump_HB_id             96276 non-null  object 
+ 78   ump_HB_name           96276 non-null  object 
+ 79   ump_1B_id             96276 non-null  object 
+ 80   ump_1B_name           96276 non-null  object 
+ 81   ump_2B_id             95690 non-null  object 
+ 82   ump_2B_name           96276 non-null  object 
+ 83   ump_3B_id             96275 non-null  object 
+ 84   ump_3B_name           96276 non-null  object 
+ 85   ump_LF_id             9 non-null      object 
+ 86   ump_LF_name           96276 non-null  object 
+ 87   ump_RF_id             9 non-null      object 
+ 88   ump_RF_name           96276 non-null  object 
+ 89   mgr_id_v              96276 non-null  object 
+ 90   mgr_name_v            96276 non-null  object 
+ 91   mgr_id_h              96276 non-null  object 
+ 92   mgr_name_h            96276 non-null  object 
+ 93   pitcher_id_w          96241 non-null  object 
+ 94   pitcher_name_w        96241 non-null  object 
+ 95   pitcher_id_l          96241 non-null  object 
+ 96   pitcher_name_l        96241 non-null  object 
+ 97   pitcher_id_s          47878 non-null  object 
+ 98   pitcher_name_s        96276 non-null  object 
+ 99   GWRBI_id              91150 non-null  object 
+ 100  GWRBI_name            96276 non-null  object 
+ 101  pitcher_start_id_v    96276 non-null  object 
+ 102  pitcher_start_name_v  96276 non-null  object 
+ 103  pitcher_start_id_h    96276 non-null  object 
+ 104  pitcher_start_name_h  96276 non-null  object 
+ 105  batter1_name_v        96276 non-null  object 
+ 106  batter1_id_v          96276 non-null  object 
+ 107  batter1_pos_v         96276 non-null  int64  
+ 108  batter2_name_v        96276 non-null  object 
+ 109  batter2_id_v          96276 non-null  object 
+ 110  batter2_pos_v         96276 non-null  int64  
+ 111  batter3_name_v        96276 non-null  object 
+ 112  batter3_id_v          96276 non-null  object 
+ 113  batter3_pos_v         96276 non-null  int64  
+ 114  batter4_name_v        96276 non-null  object 
+ 115  batter4_id_v          96276 non-null  object 
+ 116  batter4_pos_v         96276 non-null  int64  
+ 117  batter5_name_v        96276 non-null  object 
+ 118  batter5_id_v          96276 non-null  object 
+ 119  batter5_pos_v         96276 non-null  int64  
+ 120  batter6_name_v        96276 non-null  object 
+ 121  batter6_id_v          96276 non-null  object 
+ 122  batter6_pos_v         96276 non-null  int64  
+ 123  batter7_name_v        96276 non-null  object 
+ 124  batter7_id_v          96276 non-null  object 
+ 125  batter7_pos_v         96276 non-null  int64  
+ 126  batter8_name_v        96276 non-null  object 
+ 127  batter8_id_v          96276 non-null  object 
+ 128  batter8_pos_v         96276 non-null  int64  
+ 129  batter9_name_v        96276 non-null  object 
+ 130  batter9_id_v          96276 non-null  object 
+ 131  batter9_pos_v         96276 non-null  int64  
+ 132  batter1_name_h        96276 non-null  object 
+ 133  batter1_id_h          96276 non-null  object 
+ 134  batter1_pos_h         96276 non-null  int64  
+ 135  batter2_name_h        96276 non-null  object 
+ 136  batter2_id_h          96276 non-null  object 
+ 137  batter2_pos_h         96276 non-null  int64  
+ 138  batter3_name_h        96276 non-null  object 
+ 139  batter3_id_h          96276 non-null  object 
+ 140  batter3_pos_h         96276 non-null  int64  
+ 141  batter4_name_h        96276 non-null  object 
+ 142  batter4_id_h          96276 non-null  object 
+ 143  batter4_pos_h         96276 non-null  int64  
+ 144  batter5_name_h        96276 non-null  object 
+ 145  batter5_id_h          96276 non-null  object 
+ 146  batter5_pos_h         96276 non-null  int64  
+ 147  batter6_name_h        96276 non-null  object 
+ 148  batter6_id_h          96276 non-null  object 
+ 149  batter6_pos_h         96276 non-null  int64  
+ 150  batter7_name_h        96276 non-null  object 
+ 151  batter7_id_h          96276 non-null  object 
+ 152  batter7_pos_h         96276 non-null  int64  
+ 153  batter8_name_h        96276 non-null  object 
+ 154  batter8_id_h          96276 non-null  object 
+ 155  batter8_pos_h         96276 non-null  int64  
+ 156  batter9_name_h        96276 non-null  object 
+ 157  batter9_id_h          96276 non-null  object 
+ 158  batter9_pos_h         96276 non-null  int64  
+ 159  misc_info             416 non-null    object 
+ 160  acqui_info            96276 non-null  object 
+ 161  season                96276 non-null  int64  
+ 162  run_diff              96276 non-null  int64  
+ 163  home_victory          96276 non-null  int64  
+ 164  run_total             96276 non-null  int64  
+ 165  date_dblhead          96276 non-null  int64  
+ 166  BATAVG_162_h          93599 non-null  float64
+ 167  BATAVG_162_v          93607 non-null  float64
+ 168  OBP_162_h             93599 non-null  float64
+ 169  OBP_162_v             93607 non-null  float64
+ 170  SLG_162_h             93599 non-null  float64
+ 171  SLG_162_v             93607 non-null  float64
+ 172  OBS_162_h             93599 non-null  float64
+ 173  OBS_162_v             93607 non-null  float64
+ 174  SB_162_h              93599 non-null  float64
+ 175  SB_162_v              93607 non-null  float64
+ 176  CS_162_h              93599 non-null  float64
+ 177  CS_162_v              93607 non-null  float64
+ 178  ERR_162_h             93599 non-null  float64
+ 179  ERR_162_v             93607 non-null  float64
+ 180  BATAVG_30_h           95794 non-null  float64
+ 181  BATAVG_30_v           95768 non-null  float64
+ 182  OBP_30_h              95794 non-null  float64
+ 183  OBP_30_v              95768 non-null  float64
+ 184  SLG_30_h              95794 non-null  float64
+ 185  SLG_30_v              95768 non-null  float64
+ 186  OBS_30_h              95794 non-null  float64
+ 187  OBS_30_v              95768 non-null  float64
+ 188  SB_30_h               95794 non-null  float64
+ 189  SB_30_v               95768 non-null  float64
+ 190  CS_30_h               95794 non-null  float64
+ 191  CS_30_v               95768 non-null  float64
+ 192  ERR_30_h              95794 non-null  float64
+ 193  ERR_30_v              95768 non-null  float64
+dtypes: float64(29), int64(87), object(78)
+memory usage: 142.5+ MB
+None
+#+end_example
+
+#+begin_src python
+  # This prints how many rows there are for each season in the dataframe.
+  print(df.season.value_counts().sort_index())
+#+end_src
+
+#+RESULTS:
+#+begin_example
+season
+1980    2105
+1981    1394
+1982    2107
+1983    2109
+1984    2105
+1985    2103
+1986    2103
+1987    2105
+1988    2100
+1989    2106
+1990    2105
+1991    2104
+1992    2106
+1993    2269
+1994    1600
+1995    2017
+1996    2267
+1997    2266
+1998    2432
+1999    2428
+2000    2429
+2001    2429
+2002    2426
+2003    2430
+2004    2428
+2005    2431
+2006    2429
+2007    2431
+2008    2428
+2009    2430
+2010    2430
+2011    2429
+2012    2430
+2013    2431
+2014    2430
+2015    2429
+2016    2428
+2017    2430
+2018    2431
+2019    2429
+2020     898
+2021    2429
+2022    2430
+Name: count, dtype: int64
+#+end_example
+
+#+begin_src python
+  # prints how often the home team wins
+  hv_mean = df.home_victory.mean()
+  print(hv_mean)
+#+end_src
+
+#+RESULTS:
+: 0.538368856205077
+
+#+begin_src python
+  print(df.run_diff.value_counts())
+#+end_src
+
+#+RESULTS:
+#+begin_example
+run_diff
+ 1     16912
+-1     10907
+ 2      9029
+-2      8675
+ 3      7169
+-3      6864
+ 4      5586
+-4      5385
+ 5      4012
+-5      3950
+ 6      2938
+-6      2794
+ 7      2036
+-7      2000
+ 8      1481
+-8      1337
+ 9       989
+-9       904
+ 10      630
+-10      612
+ 11      403
+-11      369
+ 12      257
+-12      226
+-13      169
+ 13      162
+ 14       96
+-14       89
+ 15       49
+-15       44
+-16       38
+ 0        35
+ 16       35
+ 17       19
+-17       17
+-18       12
+ 19       10
+ 18        9
+-19        7
+ 21        6
+-21        4
+-20        3
+ 20        3
+ 22        1
+-22        1
+-27        1
+-23        1
+Name: count, dtype: int64
+#+end_example
+
+#+begin_src python
+  print(df.outs_total.value_counts())
+#+end_src
+
+#+RESULTS:
+#+begin_example
+outs_total
+51     43646
+54     40092
+60      1890
+53      1844
+52      1634
+66      1016
+58       882
+59       809
+72       545
+64       442
+57       426
+65       416
+78       303
+70       251
+63       217
+71       214
+84       161
+77       132
+42       125
+76       121
+39       120
+69       113
+82        76
+83        73
+90        73
+75        70
+96        46
+89        46
+36        32
+30        31
+81        28
+48        27
+45        23
+33        23
+88        23
+102       23
+94        20
+95        19
+31        17
+41        17
+108       17
+40        12
+100       11
+87        11
+46        10
+101       10
+93        10
+43         9
+28         8
+106        8
+38         8
+114        8
+37         7
+27         7
+34         7
+44         7
+32         6
+105        6
+47         6
+120        5
+111        4
+113        4
+49         4
+29         4
+107        3
+118        3
+132        2
+35         2
+50         2
+112        2
+131        1
+148        1
+129        1
+79         1
+126        1
+55         1
+99         1
+Name: count, dtype: int64
+#+end_example
+
+#+begin_src python
+  # 99% of the time the home team wins with 53 outs recorded(2 outs in the
+  # bottem of the 9th)
+  print(df.home_victory[df.outs_total == 53].mean())
+#+end_src
+
+#+RESULTS:
+: 0.9994577006507592
+
+#+begin_src python
+   # turns out that only one game recorded with 53 outs resulted in the
+   # home team losing because of rain cancelling the game.
+   print(df.loc[(df.outs_total==53) & (df.home_victory!=1),:])
+#+end_src
+
+#+RESULTS:
+#+begin_example
+           date  dblheader_code day_of_week team_v league_v  game_no_v team_h  \
+56258  20050915               0         Thu    SLN       NL        148    CHN   
+
+      league_h  game_no_h  runs_v  runs_h  outs_total day_night  \
+56258       NL        147       6       1          53         N   
+
+      completion_info forfeit_info protest_info ballpark_id  attendance  \
+56258             NaN          NaN          NaN       CHI11     37849.0   
+
+       game_minutes linescore_v linescore_h  AB_v  H_v  2B_v  3B_v  HR_v  \
+56258           167   300000030   000000001    33    9     1     0     0   
+
+       RBI_v  SH_v  SF_v  HBP_v  BB_v  IBB_v  SO_v  SB_v  CS_v  GIDP_v  CI_v  \
+56258      5     0     1      0     5      0     6     0     1       1     0   
+
+       LOB_v  P_num_v  ERind_v  ERteam_v  WP_v  balk_v  PO_v  ASST_v  ERR_v  \
+56258      6        2        1         1     1       0    26      12      1   
+
+       PB_v  DP_v  TP_v  AB_h  H_h  2B_h  3B_h  HR_h  RBI_h  SH_h  SF_h  \
+56258     0     1     0    33    8     0     0     1      1     0     0   
+
+       HBP_h  BB_h  IBB_h  SO_h  SB_h  CS_h  GIDP_h  CI_h  LOB_h  P_num_h  \
+56258      0     2      0     8     0     0       1     0      8        3   
+
+       ERind_h  ERteam_h  WP_h  balk_h  PO_h  ASST_h  ERR_h  PB_h  DP_h  TP_h  \
+56258        5         5     0       0    27      13      1     0     2     0   
+
+      ump_HB_id ump_HB_name ump_1B_id   ump_1B_name ump_2B_id    ump_2B_name  \
+56258  wolfj901    Jim Wolf  holbs901  Sam Holbrook  vanol901  Larry Vanover   
+
+      ump_3B_id  ump_3B_name ump_LF_id ump_LF_name ump_RF_id ump_RF_name  \
+56258  marsr901  Randy Marsh       NaN      (none)       NaN      (none)   
+
+       mgr_id_v    mgr_name_v  mgr_id_h   mgr_name_h pitcher_id_w  \
+56258  larut101  Tony LaRussa  baked002  Dusty Baker     suppj001   
+
+      pitcher_name_w pitcher_id_l pitcher_name_l pitcher_id_s pitcher_name_s  \
+56258    Jeff Suppan     priom001     Mark Prior          NaN         (none)   
+
+       GWRBI_id    GWRBI_name pitcher_start_id_v pitcher_start_name_v  \
+56258  walkl001  Larry Walker           suppj001          Jeff Suppan   
+
+      pitcher_start_id_h pitcher_start_name_h batter1_name_v    batter1_id_v  \
+56258           priom001           Mark Prior       ecksd001  David Eckstein   
+
+       batter1_pos_v batter2_name_v batter2_id_v  batter2_pos_v  \
+56258              6       edmoj001  Jim Edmonds              8   
+
+      batter3_name_v   batter3_id_v  batter3_pos_v batter4_name_v  \
+56258       pujoa001  Albert Pujols              3       walkl001   
+
+       batter4_id_v  batter4_pos_v batter5_name_v    batter5_id_v  \
+56258  Larry Walker              9       rodrj002  John Rodriguez   
+
+       batter5_pos_v batter6_name_v   batter6_id_v  batter6_pos_v  \
+56258              7       nunea001  Abraham Nunez              5   
+
+      batter7_name_v   batter7_id_v  batter7_pos_v batter8_name_v  \
+56258       moliy001  Yadier Molina              2       lunah001   
+
+      batter8_id_v  batter8_pos_v batter9_name_v batter9_id_v  batter9_pos_v  \
+56258  Hector Luna              4       suppj001  Jeff Suppan              1   
+
+      batter1_name_h    batter1_id_h  batter1_pos_h batter2_name_h  \
+56258       hairj002  Jerry Hairston              8       walkt002   
+
+      batter2_id_h  batter2_pos_h batter3_name_h batter3_id_h  batter3_pos_h  \
+56258  Todd Walker              4       lee-d002   Derrek Lee              3   
+
+      batter4_name_h       batter4_id_h  batter4_pos_h batter5_name_h  \
+56258       garcn001  Nomar Garciaparra              5       burnj001   
+
+         batter5_id_h  batter5_pos_h batter6_name_h batter6_id_h  \
+56258  Jeromy Burnitz              9       murtm001  Matt Murton   
+
+       batter6_pos_h batter7_name_h batter7_id_h  batter7_pos_h  \
+56258              7       peren001  Neifi Perez              6   
+
+      batter8_name_h  batter8_id_h  batter8_pos_h batter9_name_h batter9_id_h  \
+56258       blanh001  Henry Blanco              2       priom001   Mark Prior   
+
+       batter9_pos_h misc_info acqui_info  season  run_diff  home_victory  \
+56258              1       NaN          Y    2005        -5             0   
+
+       run_total  date_dblhead  BATAVG_162_h  BATAVG_162_v  OBP_162_h  \
+56258          7     200509150      0.268813      0.270416   0.323345   
+
+       OBP_162_v  SLG_162_h  SLG_162_v  OBS_162_h  OBS_162_v  SB_162_h  \
+56258   0.334703   0.439957   0.424193   0.763303   0.758897      63.0   
+
+       SB_162_v  CS_162_h  CS_162_v  ERR_162_h  ERR_162_v  BATAVG_30_h  \
+56258      88.0      36.0      37.0       98.0       99.0     0.271073   
+
+       BATAVG_30_v  OBP_30_h  OBP_30_v  SLG_30_h  SLG_30_v  OBS_30_h  \
+56258     0.263467  0.322351   0.32737  0.444444   0.39569  0.766795   
+
+       OBS_30_v  SB_30_h  SB_30_v  CS_30_h  CS_30_v  ERR_30_h  ERR_30_v  
+56258  0.723061     12.0     20.0      6.0      5.0      15.0      23.0
+#+end_example
+
+#+begin_src python
+  print(df.game_no_h.value_counts().sort_index())
+#+end_src
+
+#+RESULTS:
+#+begin_example
+game_no_h
+1      612
+2      611
+3      612
+4      611
+5      609
+6      614
+7      615
+8      627
+9      631
+10     623
+11     608
+12     600
+13     609
+14     608
+15     620
+16     621
+17     622
+18     626
+19     632
+20     612
+21     601
+22     616
+23     609
+24     597
+25     587
+26     599
+27     611
+28     617
+29     622
+30     625
+31     642
+32     645
+33     622
+34     620
+35     607
+36     600
+37     594
+38     586
+39     591
+40     602
+41     623
+42     631
+43     628
+44     618
+45     625
+46     627
+47     611
+48     602
+49     607
+50     608
+51     598
+52     609
+53     604
+54     616
+55     624
+56     604
+57     607
+58     614
+59     635
+60     635
+61     600
+62     594
+63     592
+64     594
+65     599
+66     619
+67     603
+68     592
+69     603
+70     588
+71     586
+72     588
+73     595
+74     598
+75     602
+76     627
+77     621
+78     603
+79     613
+80     595
+81     593
+82     588
+83     583
+84     599
+85     592
+86     602
+87     588
+88     582
+89     596
+90     579
+91     608
+92     607
+93     617
+94     614
+95     601
+96     614
+97     619
+98     609
+99     587
+100    583
+101    600
+102    590
+103    584
+104    592
+105    606
+106    591
+107    595
+108    584
+109    592
+110    597
+111    595
+112    597
+113    587
+114    581
+115    575
+116    569
+117    566
+118    580
+119    562
+120    564
+121    567
+122    563
+123    569
+124    577
+125    592
+126    587
+127    579
+128    576
+129    577
+130    561
+131    563
+132    566
+133    576
+134    566
+135    566
+136    558
+137    570
+138    586
+139    582
+140    584
+141    580
+142    569
+143    563
+144    549
+145    552
+146    559
+147    560
+148    566
+149    553
+150    554
+151    555
+152    565
+153    575
+154    560
+155    561
+156    575
+157    560
+158    555
+159    534
+160    546
+161    553
+162    511
+163     32
+164      2
+Name: count, dtype: int64
+#+end_example
+
+
+Moral of the Story: Interrogate your data!
+- Ask questions
+- Make hypotheses
+- Dig into details to confirm or disprove them
+
+* Begin Modeling
+
+#+begin_src python
+  df = df[df.run_diff!=0]  # drop all the games that end in a tie (run diff. = 0)
+  df_train = df[(df.season>1980) & (df.season<=2018)]
+  df_valid = df[(df.season>=2019) & (df.season<=2020)]
+  df_test = df[df.season>=2021]
+#+end_src
+
+#+RESULTS:
+
+#+begin_src python
+  features = ['OBP_162_h','OBP_162_v',
+            'SLG_162_h','SLG_162_v', 
+            # 'OBP_30_h','OBP_30_v',
+            # 'SLG_30_h','SLG_30_v',
+            # 'game_no_h',
+           ]
+  target = 'home_victory'
+#+end_src
+
+#+RESULTS:
+
+#+begin_src python
+
+  X_train = df_train.loc[:,features]
+  X_valid = df_valid.loc[:,features]
+  X_test = df_test.loc[:,features]
+
+  y_train = df_train[target].to_numpy()
+  y_valid = df_valid[target].to_numpy()
+  y_test = df_test[target].to_numpy()
+#+end_src
+
+#+RESULTS:
+
+#+begin_src python
+  print(X_train.OBP_162_h)
+#+end_src
+
+#+RESULTS:
+#+begin_example
+2105     0.327182
+2106     0.347770
+2107          NaN
+2108     0.343286
+2109     0.307951
+           ...   
+88085    0.315902
+88086    0.307990
+88087    0.324688
+88088    0.327930
+88089    0.328266
+Name: OBP_162_h, Length: 85954, dtype: float64
+#+end_example
+
+#+begin_src python :results output graphics file :file pyplot.png
+  plt.clf()
+  plt.hist(X_train.OBP_162_h, np.linspace(.25,.4,151))
+  plt.savefig("pyplot.png")
+#+end_src
+
+#+RESULTS:
+[[file:pyplot.png]]
+
+
+
